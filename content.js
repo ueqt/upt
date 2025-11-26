@@ -6,21 +6,26 @@ function addExpandButtons() {
 
   const rows = Array.from(grid.querySelectorAll('div[role="row"]'));
 
-  // Ensure the header row has an extra column for the buttons
+  // Ensure all rows are visible by default unless explicitly hidden by this script
+  rows.forEach(row => {
+    if (row.style.display === 'none' && !row.dataset.customHidden) {
+      row.style.display = '';
+    }
+  });
+
   const headerRow = rows.find(row => row.querySelector('div[role="columnheader"]'));
   if (headerRow && !headerRow.querySelector('.custom-expand-column-header')) {
     const newHeaderCell = document.createElement('div');
     newHeaderCell.setAttribute('role', 'columnheader');
-    newHeaderCell.className = 'custom-expand-column-header'; // To identify it later
-    newHeaderCell.style.width = '40px'; // Adjust width as needed
+    newHeaderCell.className = 'custom-expand-column-header';
+    newHeaderCell.style.width = '40px';
     newHeaderCell.style.minWidth = '40px';
     headerRow.prepend(newHeaderCell);
   }
 
   rows.forEach((row, index) => {
-    if (row.querySelector('div[role="columnheader"]')) return; // Skip header row for button logic
+    if (row.querySelector('div[role="columnheader"]')) return;
 
-    // Ensure a custom cell for the button exists for every data row
     let customCell = row.querySelector('.custom-expand-cell');
     if (!customCell) {
         customCell = document.createElement('div');
@@ -34,7 +39,6 @@ function addExpandButtons() {
         row.prepend(customCell);
     }
 
-    // Determine if the row should have a button
     let shouldHaveButton = false;
     const nativeExpandButton = row.querySelector('button[aria-expanded]');
     const nextRow = rows[index + 1];
@@ -45,12 +49,10 @@ function addExpandButtons() {
 
         if (currentRowContentWrapper && nextRowContentWrapper && nextRowContentWrapper.querySelector('img')) {
           if(currentRowContentWrapper.querySelector('img')) {
-            // Condition 1: next row is indented
             const currentRowPadding = parseFloat(window.getComputedStyle(currentRowContentWrapper.firstChild).paddingLeft);
             const nextRowPadding = parseFloat(window.getComputedStyle(nextRowContentWrapper.firstChild).paddingLeft);
             shouldHaveButton = (nextRowPadding > currentRowPadding);
           } else {
-            // Condition 2: current row has no image
             shouldHaveButton = true;
           }
         }
@@ -59,28 +61,104 @@ function addExpandButtons() {
     const existingButton = customCell.querySelector('.custom-expand-button');
 
     if (shouldHaveButton) {
-      const buttonText = nativeExpandButton.getAttribute('aria-expanded') === 'true' ? '-' : '+';
-      // Add or update button
       if (!existingButton) {
         const newButton = document.createElement('button');
-        newButton.textContent = buttonText;
+        newButton.textContent = '-'; // Default to expanded
         newButton.className = 'custom-expand-button';
         newButton.style.cssText = 'border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; min-width: 20px; height: 20px; line-height: 18px; padding: 0;';
 
         newButton.addEventListener('click', (e) => {
           e.stopPropagation();
-          nativeExpandButton.click();
-          // We can't rely on the state right after click, so we check after a short delay
-          setTimeout(() => {
-              newButton.textContent = nativeExpandButton.getAttribute('aria-expanded') === 'true' ? '-' : '+';
-          }, 100);
+          
+          const isExpanded = newButton.textContent === '-';
+          newButton.textContent = isExpanded ? '+' : '-';
+
+          const currentRow = newButton.closest('div[role="row"]');
+          const allRows = Array.from(grid.querySelectorAll('div[role="row"]'));
+          const currentRowIndex = allRows.findIndex(r => r === currentRow);
+
+          const currentRowContentWrapper = currentRow.querySelector('div[role="gridcell"]:not(.custom-expand-cell) > div:first-child');
+          if (!currentRowContentWrapper) return;
+
+          const hasImage = currentRowContentWrapper.querySelector('img');
+
+          if (!hasImage) {
+            // Logic for rows without images
+            for (let i = currentRowIndex + 1; i < allRows.length; i++) {
+              const nextRow = allRows[i];
+              const nextRowContentWrapper = nextRow.querySelector('div[role="gridcell"]:not(.custom-expand-cell) > div:first-child');
+              if (nextRowContentWrapper && !nextRowContentWrapper.querySelector('img')) {
+                break;
+              }
+              if (isExpanded) { // Collapse
+                nextRow.parentElement.style.display = 'none';
+                nextRow.dataset.customHidden = 'true';
+              } else { // Expand
+                nextRow.parentElement.style.display = '';
+                delete nextRow.dataset.customHidden;
+              }
+            }
+          } else {
+            // Logic for rows with images (based on padding)
+            if (!currentRowContentWrapper.firstChild) return;
+            const basePadding = parseFloat(window.getComputedStyle(currentRowContentWrapper.firstChild).paddingLeft);
+
+            if (isExpanded) { // Collapse
+              for (let i = currentRowIndex + 1; i < allRows.length; i++) {
+                const nextRow = allRows[i];
+                const nextRowContentWrapper = nextRow.querySelector('div[role="gridcell"]:not(.custom-expand-cell) > div:first-child');
+                if (!nextRowContentWrapper || !nextRowContentWrapper.firstChild) continue;
+                const nextPadding = parseFloat(window.getComputedStyle(nextRowContentWrapper.firstChild).paddingLeft);
+
+                if (nextPadding > basePadding) {
+                  nextRow.parentElement.style.display = 'none';
+                  nextRow.dataset.customHidden = 'true';
+                } else {
+                  break;
+                }
+              }
+            } else { // Expand
+              for (let i = currentRowIndex + 1; i < allRows.length; i++) {
+                const nextRow = allRows[i];
+                const nextRowContentWrapper = nextRow.querySelector('div[role="gridcell"]:not(.custom-expand-cell) > div:first-child');
+                if (!nextRowContentWrapper || !nextRowContentWrapper.firstChild) continue;
+                const nextPadding = parseFloat(window.getComputedStyle(nextRowContentWrapper.firstChild).paddingLeft);
+
+                if (nextPadding > basePadding) {
+                  nextRow.parentElement.style.display = '';
+                  delete nextRow.dataset.customHidden;
+                  
+                  const childButton = nextRow.querySelector('.custom-expand-button');
+                  if (childButton && childButton.textContent === '+') {
+                    const childsPadding = nextPadding;
+                    let j = i + 1;
+                    while (j < allRows.length) {
+                      const subRow = allRows[j];
+                      const subRowContentWrapper = subRow.querySelector('div[role="gridcell"]:not(.custom-expand-cell) > div:first-child');
+                      if (!subRowContentWrapper || !subRowContentWrapper.firstChild) {
+                          j++;
+                          continue;
+                      }
+                      const subPadding = parseFloat(window.getComputedStyle(subRowContentWrapper.firstChild).paddingLeft);
+                      if (subPadding > childsPadding) {
+                        j++;
+                      } else {
+                        break;
+                      }
+                    }
+                    i = j - 1;
+                  }
+                } else {
+                  break;
+                }
+              }
+            }
+          }
         });
         customCell.appendChild(newButton);
-      } else {
-        existingButton.textContent = buttonText;
       }
+      // If button exists, do nothing, preserving its state.
     } else {
-      // Remove button if it exists and isn't needed
       if (existingButton) {
         existingButton.remove();
       }
