@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Power Pages Table Permission Expander",
+  "version": "1.11",
+  "description": "Automatically expands the Table Permission section on make.powerpages.microsoft.com.",
+  "permissions": [],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://make.powerpages.microsoft.com/*",
+        "https://make.powerpages.microsoft.cn/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
