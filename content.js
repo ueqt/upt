@@ -167,32 +167,33 @@ function addExpandButtons() {
 }
 
 function displayVersion() {
-  const version = chrome.runtime.getManifest().version;
-  const headerCenterRegion = document.getElementById('ppuxOfficeHeaderCenterRegion');
+    const version = chrome.runtime.getManifest().version;
+    const headerCenterRegion = document.getElementById('ppuxOfficeHeaderCenterRegion');
 
-  if (headerCenterRegion && !document.querySelector('.version-display')) {
-    const versionDisplay = document.createElement('div');
-    versionDisplay.textContent = `V${version}`;
-    versionDisplay.className = 'version-display';
+    if (headerCenterRegion) {
+        // Ensure the container is a flex container to allow centering
+        headerCenterRegion.style.display = 'flex';
+        headerCenterRegion.style.justifyContent = 'center';
+        headerCenterRegion.style.alignItems = 'center';
 
-    versionDisplay.style.cssText = `
-      font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      color: #FFFFFF;
-      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-      width: 100%;
-      text-align: center;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    `;
-
-    headerCenterRegion.style.position = 'relative';
-    headerCenterRegion.appendChild(versionDisplay);
-  }
+        let versionBanner = document.getElementById('extension-version-banner');
+        if (!versionBanner) {
+            versionBanner = document.createElement('div');
+            versionBanner.id = 'extension-version-banner';
+            headerCenterRegion.appendChild(versionBanner);
+        }
+        versionBanner.textContent = `Helper v${version}`;
+        versionBanner.style.cssText = `
+            color: #605e5c; /* Fluent UI neutral secondary text color */
+            background-color: #f3f2f1; /* Fluent UI neutralLighter background */
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            text-align: center;
+        `;
+    }
 }
 
 function adjustTableLayout() {
