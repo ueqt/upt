@@ -252,7 +252,7 @@ function adjustParentScroll() {
     viewport.style.overflowY = 'auto';
 }
 
-function forceLoadAllDetailsListItems() {
+function forceLoadAllDetailsListItems(needAllRows = false) {
     if (listProcessed) return;
     const grid = document.querySelector('div[role="grid"]');
     if (!grid || !grid.closest('.ms-DetailsList') || !grid.querySelector('.ms-List-page')) return;
@@ -267,91 +267,94 @@ function forceLoadAllDetailsListItems() {
         window.dispatchEvent(new Event('resize'));
     });
 
-    let lastScrollHeight = 0;
+    if(needAllRows) {
 
-    const collectRows = () => {
-        const currentRows = Array.from(grid.querySelectorAll('div[role="row"]'));
-        let newKeys = [];
-        currentRows.forEach(row => {
-            const key = row.getAttribute('data-item-index');
-            if (key && !allRowsMap.has(key)) {
-                allRowsMap.set(key, row);
-                newKeys.push(parseInt(key, 10));
-            }
-        });
-        return newKeys.sort((a, b) => a - b);
-    };
+      let lastScrollHeight = 0;
 
-    const scrollAndLoad = () => {
-        const newKeys = collectRows();
+      const collectRows = () => {
+          const currentRows = Array.from(grid.querySelectorAll('div[role="row"]'));
+          let newKeys = [];
+          currentRows.forEach(row => {
+              const key = row.getAttribute('data-item-index');
+              if (key && !allRowsMap.has(key)) {
+                  allRowsMap.set(key, row);
+                  newKeys.push(parseInt(key, 10));
+              }
+          });
+          return newKeys.sort((a, b) => a - b);
+      };
 
-        if (newKeys.length > 0) {
-            if (lastMaxIndex !== -1 && newKeys[0] > lastMaxIndex + 1) {
-                console.warn(`Data gap detected. Expected index ${lastMaxIndex + 1}, but found ${newKeys[0]}. Scrolling up to retry.`);
-                // Scroll up a bit to try and load the missing rows
-                scrollableContainer.scrollTop -= 500; // Adjust this value as needed
-                setTimeout(scrollAndLoad, 500); // Wait a bit before retrying
-                return;
-            }
-            lastMaxIndex = newKeys.length > 0 ? Math.max(lastMaxIndex, ...newKeys) : lastMaxIndex;
-        }
+      const scrollAndLoad = () => {
+          const newKeys = collectRows();
 
-        const firstRow = grid.querySelector('div[role="row"][data-item-index]');
-        if (!firstRow) {
-            console.log("No data rows found, retrying in 500ms...");
-            setTimeout(scrollAndLoad, 500);
-            return;
-        }
-        const rowHeight = firstRow.offsetHeight;
-        const scrollIncrement = rowHeight * 20;
+          if (newKeys.length > 0) {
+              if (lastMaxIndex !== -1 && newKeys[0] > lastMaxIndex + 1) {
+                  console.warn(`Data gap detected. Expected index ${lastMaxIndex + 1}, but found ${newKeys[0]}. Scrolling up to retry.`);
+                  // Scroll up a bit to try and load the missing rows
+                  scrollableContainer.scrollTop -= 500; // Adjust this value as needed
+                  setTimeout(scrollAndLoad, 500); // Wait a bit before retrying
+                  return;
+              }
+              lastMaxIndex = newKeys.length > 0 ? Math.max(lastMaxIndex, ...newKeys) : lastMaxIndex;
+          }
 
-        const lastScrollTop = scrollableContainer.scrollTop;
-        lastScrollHeight = scrollableContainer.scrollHeight;
+          const firstRow = grid.querySelector('div[role="row"][data-item-index]');
+          if (!firstRow) {
+              console.log("No data rows found, retrying in 500ms...");
+              setTimeout(scrollAndLoad, 500);
+              return;
+          }
+          const rowHeight = firstRow.offsetHeight;
+          const scrollIncrement = rowHeight * 20;
 
-        scrollableContainer.scrollTop += scrollIncrement;
-        scrollableContainer.dispatchEvent(new Event('scroll'));
-        scrollableContainer.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 1 }));
-        window.dispatchEvent(new Event('resize'));
+          const lastScrollTop = scrollableContainer.scrollTop;
+          lastScrollHeight = scrollableContainer.scrollHeight;
 
-        setTimeout(() => {
-            const newScrollTop = scrollableContainer.scrollTop;
-            const newScrollHeight = scrollableContainer.scrollHeight;
+          scrollableContainer.scrollTop += scrollIncrement;
+          scrollableContainer.dispatchEvent(new Event('scroll'));
+          scrollableContainer.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 1 }));
+          window.dispatchEvent(new Event('resize'));
 
-            if (newScrollHeight > lastScrollHeight || newScrollTop > lastScrollTop) {
-                scrollAndLoad();
-            } else {
-                collectRows();
-                finalizeLoading();
-            }
-        }, 1000);
-    };
+          setTimeout(() => {
+              const newScrollTop = scrollableContainer.scrollTop;
+              const newScrollHeight = scrollableContainer.scrollHeight;
 
-    const finalizeLoading = () => {
-        const allRows = Array.from(allRowsMap.values());
-        console.log('All loaded and merged rows:', allRows);
+              if (newScrollHeight > lastScrollHeight || newScrollTop > lastScrollTop) {
+                  scrollAndLoad();
+              } else {
+                  collectRows();
+                  finalizeLoading();
+              }
+          }, 1000);
+      };
 
-        const totalHeight = scrollableContainer.scrollHeight;
-        scrollableContainer.style.height = `${totalHeight}px`;
-        console.log(`Virtualization disabled. Container height set to ${totalHeight}px.`);
+      const finalizeLoading = () => {
+          const allRows = Array.from(allRowsMap.values());
+          console.log('All loaded and merged rows:', allRows);
 
-        let parent = scrollableContainer.parentElement;
-        while (parent && parent !== document.body) {
-            const computedStyle = window.getComputedStyle(parent);
-            if (computedStyle.overflow === 'hidden' || computedStyle.overflowY === 'hidden') {
-                parent.style.overflow = 'visible';
-            }
-            if (parent.style.maxHeight && parent.style.maxHeight !== 'none') {
-                parent.style.maxHeight = 'none';
-            }
-            parent = parent.parentElement;
-        }
-    };
+          const totalHeight = scrollableContainer.scrollHeight;
+          scrollableContainer.style.height = `${totalHeight}px`;
+          console.log(`Virtualization disabled. Container height set to ${totalHeight}px.`);
 
-    scrollAndLoad();
+          let parent = scrollableContainer.parentElement;
+          while (parent && parent !== document.body) {
+              const computedStyle = window.getComputedStyle(parent);
+              if (computedStyle.overflow === 'hidden' || computedStyle.overflowY === 'hidden') {
+                  parent.style.overflow = 'visible';
+              }
+              if (parent.style.maxHeight && parent.style.maxHeight !== 'none') {
+                  parent.style.maxHeight = 'none';
+              }
+              parent = parent.parentElement;
+          }
+      };
+
+      scrollAndLoad();
+    }
 }
 
 function runAll() {
-  addExpandButtons();
+  // addExpandButtons();
   displayVersion();
   adjustTableLayout();
   adjustParentScroll();
@@ -373,23 +376,23 @@ function resetStateAndReload() {
     setTimeout(runAll, 500);
 }
 
-// Monkey-patch fetch to detect data refreshes
-const originalFetch = window.fetch;
-window.fetch = function(...args) {
-    const [url] = args;
+// // Monkey-patch fetch to detect data refreshes
+// const originalFetch = window.fetch;
+// window.fetch = function(...args) {
+//     const [url] = args;
 
-    const promise = originalFetch.apply(this, args);
+//     const promise = originalFetch.apply(this, args);
 
-    if (typeof url === 'string' && url.includes('api/data/v9.2/powerpagecomponents')) {
-        promise.then(res => {
-            if (res.ok) {
-                resetStateAndReload();
-            }
-        });
-    }
+//     if (typeof url === 'string' && url.includes('api/data/v9.2/powerpagecomponents')) {
+//         promise.then(res => {
+//             if (res.ok) {
+//                 resetStateAndReload();
+//             }
+//         });
+//     }
 
-    return promise;
-};
+//     return promise;
+// };
 
 const observer = new MutationObserver(() => {
   // Disconnect the observer to prevent an infinite loop
