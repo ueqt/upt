@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Power Pages Helper",
-  "version": "1.36",
+  "version": "1.37",
   "description": "Enhances the Power Pages UI.",
   "permissions": [],
   "content_scripts": [

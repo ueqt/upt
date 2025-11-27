@@ -1,3 +1,8 @@
+// Global state
+let allRowsMap = new Map();
+let listProcessed = false;
+let lastMaxIndex = -1;
+
 function addExpandButtons() {
   const grid = document.querySelector('div[role="grid"]');
   if (!grid) {
@@ -247,9 +252,6 @@ function adjustParentScroll() {
     viewport.style.overflowY = 'auto';
 }
 
-// Flag to ensure the list processing only runs once.
-let listProcessed = false;
-
 function forceLoadAllDetailsListItems() {
     if (listProcessed) return;
     const grid = document.querySelector('div[role="grid"]');
@@ -265,9 +267,7 @@ function forceLoadAllDetailsListItems() {
         window.dispatchEvent(new Event('resize'));
     });
 
-    const allRowsMap = new Map();
     let lastScrollHeight = 0;
-    let lastMaxIndex = -1; // Keep track of the last successfully loaded index
 
     const collectRows = () => {
         const currentRows = Array.from(grid.querySelectorAll('div[role="row"]'));
@@ -350,16 +350,53 @@ function forceLoadAllDetailsListItems() {
     scrollAndLoad();
 }
 
-const observer = new MutationObserver(() => {
-  // Disconnect the observer to prevent an infinite loop
-  observer.disconnect();
-
-  // Run the functions that modify the DOM
+function runAll() {
   addExpandButtons();
   displayVersion();
   adjustTableLayout();
   adjustParentScroll();
   forceLoadAllDetailsListItems();
+}
+
+function resetStateAndReload() {
+    console.log('Data has been refreshed. Resetting state and reloading all rows.');
+    allRowsMap.clear();
+    listProcessed = false;
+    lastMaxIndex = -1;
+
+    const scrollableContainer = document.querySelector('.ms-Viewport');
+    if (scrollableContainer) {
+        scrollableContainer.scrollTop = 0;
+    }
+
+    // Delay the restart slightly to allow the UI to settle
+    setTimeout(runAll, 500);
+}
+
+// Monkey-patch fetch to detect data refreshes
+const originalFetch = window.fetch;
+window.fetch = function(...args) {
+    const [url] = args;
+
+    const promise = originalFetch.apply(this, args);
+
+    if (typeof url === 'string' && url.includes('api/data/v9.2/powerpagecomponents')) {
+        promise.then(res => {
+            if (res.ok) {
+                resetStateAndReload();
+            }
+        });
+    }
+
+    return promise;
+};
+
+const observer = new MutationObserver(() => {
+  // Disconnect the observer to prevent an infinite loop
+  observer.disconnect();
+
+  // Run the functions that modify the DOM
+  runAll();
 
   // Reconnect the observer to watch for future changes
   observer.observe(document.body, {
@@ -373,8 +410,4 @@ observer.observe(document.body, {
   subtree: true,
 });
 
-addExpandButtons();
-displayVersion();
-adjustTableLayout();
-adjustParentScroll();
-forceLoadAllDetailsListItems();
+runAll();
