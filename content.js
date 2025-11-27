@@ -154,6 +154,7 @@ function addExpandButtons() {
               }
             }
           }
+          window.dispatchEvent(new Event('resize'));
         });
         customCell.appendChild(newButton);
       }
@@ -228,6 +229,127 @@ function adjustTableLayout() {
     }
 }
 
+function adjustParentScroll() {
+    const viewport = document.querySelector('.ms-Viewport');
+    if (!viewport) {
+        return;
+    }
+
+    const viewportParent = viewport.parentElement;
+    if (viewportParent) {
+        // Set a fixed height on the parent container to establish a boundary
+        viewportParent.style.height = 'calc(100vh - 250px)'; // Adjust this value as needed
+        viewportParent.style.overflow = 'hidden'; // Prevent this container from scrolling
+    }
+
+    // Make the viewport itself scrollable within the new boundary
+    viewport.style.height = '100%';
+    viewport.style.overflowY = 'auto';
+}
+
+// Flag to ensure the list processing only runs once.
+let listProcessed = false;
+
+function forceLoadAllDetailsListItems() {
+    if (listProcessed) return;
+    const grid = document.querySelector('div[role="grid"]');
+    if (!grid || !grid.closest('.ms-DetailsList') || !grid.querySelector('.ms-List-page')) return;
+
+    const scrollableContainer = grid.closest('.ms-Viewport');
+    if (!scrollableContainer) return;
+
+    console.log('DetailsList page found. Starting process to load all rows.');
+    listProcessed = true;
+
+    scrollableContainer.addEventListener('scroll', () => {
+        window.dispatchEvent(new Event('resize'));
+    });
+
+    const allRowsMap = new Map();
+    let lastScrollHeight = 0;
+    let lastMaxIndex = -1; // Keep track of the last successfully loaded index
+
+    const collectRows = () => {
+        const currentRows = Array.from(grid.querySelectorAll('div[role="row"]'));
+        let newKeys = [];
+        currentRows.forEach(row => {
+            const key = row.getAttribute('data-item-index');
+            if (key && !allRowsMap.has(key)) {
+                allRowsMap.set(key, row);
+                newKeys.push(parseInt(key, 10));
+            }
+        });
+        return newKeys.sort((a, b) => a - b);
+    };
+
+    const scrollAndLoad = () => {
+        const newKeys = collectRows();
+
+        if (newKeys.length > 0) {
+            if (lastMaxIndex !== -1 && newKeys[0] > lastMaxIndex + 1) {
+                console.warn(`Data gap detected. Expected index ${lastMaxIndex + 1}, but found ${newKeys[0]}. Scrolling up to retry.`);
+                // Scroll up a bit to try and load the missing rows
+                scrollableContainer.scrollTop -= 500; // Adjust this value as needed
+                setTimeout(scrollAndLoad, 500); // Wait a bit before retrying
+                return;
+            }
+            lastMaxIndex = newKeys.length > 0 ? Math.max(lastMaxIndex, ...newKeys) : lastMaxIndex;
+        }
+
+        const firstRow = grid.querySelector('div[role="row"][data-item-index]');
+        if (!firstRow) {
+            console.log("No data rows found, retrying in 500ms...");
+            setTimeout(scrollAndLoad, 500);
+            return;
+        }
+        const rowHeight = firstRow.offsetHeight;
+        const scrollIncrement = rowHeight * 20;
+
+        const lastScrollTop = scrollableContainer.scrollTop;
+        lastScrollHeight = scrollableContainer.scrollHeight;
+
+        scrollableContainer.scrollTop += scrollIncrement;
+        scrollableContainer.dispatchEvent(new Event('scroll'));
+        scrollableContainer.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 1 }));
+        window.dispatchEvent(new Event('resize'));
+
+        setTimeout(() => {
+            const newScrollTop = scrollableContainer.scrollTop;
+            const newScrollHeight = scrollableContainer.scrollHeight;
+
+            if (newScrollHeight > lastScrollHeight || newScrollTop > lastScrollTop) {
+                scrollAndLoad();
+            } else {
+                collectRows();
+                finalizeLoading();
+            }
+        }, 1000);
+    };
+
+    const finalizeLoading = () => {
+        const allRows = Array.from(allRowsMap.values());
+        console.log('All loaded and merged rows:', allRows);
+
+        const totalHeight = scrollableContainer.scrollHeight;
+        scrollableContainer.style.height = `${totalHeight}px`;
+        console.log(`Virtualization disabled. Container height set to ${totalHeight}px.`);
+
+        let parent = scrollableContainer.parentElement;
+        while (parent && parent !== document.body) {
+            const computedStyle = window.getComputedStyle(parent);
+            if (computedStyle.overflow === 'hidden' || computedStyle.overflowY === 'hidden') {
+                parent.style.overflow = 'visible';
+            }
+            if (parent.style.maxHeight && parent.style.maxHeight !== 'none') {
+                parent.style.maxHeight = 'none';
+            }
+            parent = parent.parentElement;
+        }
+    };
+
+    scrollAndLoad();
+}
+
 const observer = new MutationObserver(() => {
   // Disconnect the observer to prevent an infinite loop
   observer.disconnect();
@@ -236,6 +358,8 @@ const observer = new MutationObserver(() => {
   addExpandButtons();
   displayVersion();
   adjustTableLayout();
+  adjustParentScroll();
+  forceLoadAllDetailsListItems();
 
   // Reconnect the observer to watch for future changes
   observer.observe(document.body, {
@@ -252,3 +376,5 @@ observer.observe(document.body, {
 addExpandButtons();
 displayVersion();
 adjustTableLayout();
+adjustParentScroll();
+forceLoadAllDetailsListItems();
