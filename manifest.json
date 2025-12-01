@@ -1,21 +1,61 @@
 {
   "manifest_version": 3,
   "name": "Power Pages Helper",
-  "version": "1.37",
+  "version": "1.55",
   "description": "Enhances the Power Pages UI.",
-  "permissions": [],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "content_scripts": [
     {
       "matches": [
         "https://make.powerpages.microsoft.com/*",
         "https://make.powerpages.microsoft.cn/*"
       ],
-      "js": ["content.js"]
+      "js": [
+        "content.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://make.powerapps.cn/*",
+        "https://make.powerapps.com/*"
+      ],
+      "js": [
+        "powerapps_helper.js"
+      ]
     }
   ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "injected_script.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }
