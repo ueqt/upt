@@ -14,78 +14,6 @@ function getVisibleDialog() {
 }
 
 /**
- * @description 在“Add”按钮前添加一个复选框，用于过滤已在 solution 中的内容
- */
-function addFilterCheckbox() {
-  const visibleDialog = getVisibleDialog();
-  if (!visibleDialog) {
-    const checkbox = document.getElementById('filter-checkbox');
-    if (checkbox) checkbox.remove();
-    const label = document.querySelector('label[for="filter-checkbox"]');
-    if (label) label.remove();
-    return;
-  }
-
-  const nextButton = visibleDialog.querySelector('button[aria-label="Next"]');
-  const addButton = visibleDialog.querySelector('button[aria-label="Add"]');
-  const tabList = visibleDialog.querySelector('[role="tablist"]');
-
-  const checkbox = document.getElementById('filter-checkbox');
-  const label = document.querySelector('label[for="filter-checkbox"]');
-
-  const shouldShowCheckbox = addButton && tabList && !nextButton;
-
-  if (shouldShowCheckbox) {
-    if (!checkbox) {
-      const newCheckbox = document.createElement('input');
-      newCheckbox.type = 'checkbox';
-      newCheckbox.id = 'filter-checkbox';
-      newCheckbox.style.marginRight = '10px';
-
-      const newLabel = document.createElement('label');
-      newLabel.htmlFor = 'filter-checkbox';
-      newLabel.innerText = 'Filter items already in solution';
-      newLabel.style.marginRight = '10px';
-
-      addButton.parentNode.insertBefore(newCheckbox, addButton);
-      addButton.parentNode.insertBefore(newLabel, addButton);
-
-      newCheckbox.addEventListener('change', (e) => {
-        filterSolutionItems(e.target.checked, visibleDialog);
-      });
-    }
-  } else {
-    if (checkbox) checkbox.remove();
-    if (label) label.remove();
-  }
-}
-
-/**
- * @description 根据复选框的状态过滤 solution 中的项目
- * @param {boolean} isChecked 复选框是否选中
- * @param {HTMLElement} context 在哪个对话框中进行过滤
- */
-function filterSolutionItems(isChecked, context) {
-  if (!context) return;
-
-  const grid = context.querySelector('div[role="grid"]');
-  if (!grid) return;
-
-  const rows = Array.from(grid.querySelectorAll('div[role="row"]'));
-  rows.forEach(row => {
-    const managedCell = row.querySelector('div[data-automation-key="managed"]');
-    if (managedCell) {
-      const isManaged = managedCell.innerText.toLowerCase() === 'yes';
-      if (isChecked && isManaged) {
-        row.style.display = 'none';
-      } else {
-        row.style.display = '';
-      }
-    }
-  });
-}
-
-/**
  * @description 在 `ppuxOfficeHeaderCenterRegion` 元素中显示版本号和抓取按钮
  */
 function displayVersion() {
@@ -138,6 +66,121 @@ function displayVersion() {
 }
 
 /**
+ * @description 显示一个全局加载遮罩
+ */
+function showLoadingOverlay() {
+  const overlay = document.createElement('div');
+  overlay.id = 'loading-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  const spinner = document.createElement('div');
+  spinner.style.cssText = `
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 2s linear infinite;
+  `;
+
+  overlay.appendChild(spinner);
+  document.body.appendChild(overlay);
+
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * @description 隐藏加载遮罩
+ */
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+/**
+ * @description 在对话框中添加“Filter items already in solution”复选框
+ */
+function addFilterCheckbox() {
+  const dialog = getVisibleDialog();
+  if (dialog && !dialog.querySelector('#filter-checkbox')) {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'filter-checkbox';
+    checkbox.style.marginRight = '8px';
+
+    const label = document.createElement('label');
+    label.htmlFor = 'filter-checkbox';
+    label.textContent = 'Filter items already in solution';
+    label.style.display = 'flex';
+    label.style.alignItems = 'center';
+    label.style.cursor = 'pointer';
+    label.style.fontWeight = '600';
+    label.style.marginBottom = '10px';
+
+    label.insertBefore(checkbox, label.firstChild);
+
+    const titleElement = dialog.querySelector('h1');
+    if (titleElement && titleElement.parentElement) {
+      titleElement.parentElement.insertBefore(label, titleElement.nextSibling);
+    }
+
+    checkbox.addEventListener('change', (event) => {
+      filterSolutionItems(event.target.checked);
+    });
+  }
+}
+
+/**
+ * @description 根据复选框状态过滤解决方案中的项目
+ * @param {boolean} isChecked - 复选框是否被选中
+ */
+function filterSolutionItems(isChecked) {
+  if (!window.allApiItems) {
+    alert('Please click "Fetch All Items (API)" first to get the data for filtering.');
+    const checkbox = document.getElementById('filter-checkbox');
+    if (checkbox) checkbox.checked = false;
+    return;
+  }
+
+  const gridRows = document.querySelectorAll('div[role="grid"] div[role="row"]');
+  const apiItemsMap = new Map(window.allApiItems.map(item => [item.msdyn_displayname, item]));
+
+  gridRows.forEach(row => {
+    const nameElement = row.querySelector('div[data-automation-id="solution-component-name"]');
+    if (nameElement) {
+      const displayName = nameElement.textContent.trim();
+      const apiItem = apiItemsMap.get(displayName);
+
+      if (isChecked && apiItem && apiItem.msdyn_ismanaged) {
+        row.style.display = 'none';
+      } else {
+        row.style.display = '';
+      }
+    }
+  });
+}
+
+/**
  * @description Injects a script into the page to intercept fetch requests and capture credentials.
  */
 function injectScript() {
@@ -167,6 +210,7 @@ window.addEventListener('message', (event) => {
  * It retrieves credentials from localStorage and handles pagination.
  */
 async function fetchAllItems() {
+  showLoadingOverlay();
   const scrapeButton = document.getElementById('scrape-button');
   scrapeButton.textContent = 'Fetching...';
   scrapeButton.disabled = true;
@@ -234,8 +278,10 @@ async function fetchAllItems() {
     alert(`Successfully fetched ${allItems.length} items. See console for data.`);
 
   } catch (error) {
-    console.error('Error in fetchAllItems:', error);
+    console.error('Error fetching items:', error);
+    alert('An error occurred while fetching items. See the console for details.');
   } finally {
+    hideLoadingOverlay();
     scrapeButton.textContent = 'Fetch All Items (API)';
     scrapeButton.disabled = false;
   }
@@ -243,8 +289,8 @@ async function fetchAllItems() {
 
 const observer = new MutationObserver(() => {
   observer.disconnect();
-  addFilterCheckbox();
   displayVersion();
+  addFilterCheckbox();
   observer.observe(document.body, {
     childList: true,
     subtree: true,
@@ -257,6 +303,5 @@ observer.observe(document.body, {
 });
 
 
-addFilterCheckbox();
 displayVersion();
 injectScript();
