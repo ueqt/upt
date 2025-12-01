@@ -274,6 +274,11 @@ async function fetchAllItems() {
     }
 
     window.allApiItems = allItems; // Store all items globally as per instruction
+    
+    // Store msdyn_objectid in localStorage for the injected script
+    const objectIds = allItems.map(item => item.msdyn_objectid);
+    localStorage.setItem('solutionComponentObjectIds', JSON.stringify(objectIds));
+
     console.table(allItems.map(item => ({ 
       msdyn_objectid: item.msdyn_objectid, 
       msdyn_displayname: item.msdyn_displayname 
