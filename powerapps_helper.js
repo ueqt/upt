@@ -118,69 +118,6 @@ function hideLoadingOverlay() {
 }
 
 /**
- * @description 在对话框中添加“Filter items already in solution”复选框
- */
-function addFilterCheckbox() {
-  const dialog = getVisibleDialog();
-  if (dialog && !dialog.querySelector('#filter-checkbox')) {
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = 'filter-checkbox';
-    checkbox.style.marginRight = '8px';
-
-    const label = document.createElement('label');
-    label.htmlFor = 'filter-checkbox';
-    label.textContent = 'Filter items already in solution';
-    label.style.display = 'flex';
-    label.style.alignItems = 'center';
-    label.style.cursor = 'pointer';
-    label.style.fontWeight = '600';
-    label.style.marginBottom = '10px';
-
-    label.insertBefore(checkbox, label.firstChild);
-
-    const titleElement = dialog.querySelector('h1');
-    if (titleElement && titleElement.parentElement) {
-      titleElement.parentElement.insertBefore(label, titleElement.nextSibling);
-    }
-
-    checkbox.addEventListener('change', (event) => {
-      filterSolutionItems(event.target.checked);
-    });
-  }
-}
-
-/**
- * @description 根据复选框状态过滤解决方案中的项目
- * @param {boolean} isChecked - 复选框是否被选中
- */
-function filterSolutionItems(isChecked) {
-  if (!window.allApiItems) {
-    alert('Please click "Fetch All Items (API)" first to get the data for filtering.');
-    const checkbox = document.getElementById('filter-checkbox');
-    if (checkbox) checkbox.checked = false;
-    return;
-  }
-
-  const gridRows = document.querySelectorAll('div[role="grid"] div[role="row"]');
-  const apiItemsMap = new Map(window.allApiItems.map(item => [item.msdyn_displayname, item]));
-
-  gridRows.forEach(row => {
-    const nameElement = row.querySelector('div[data-automation-id="solution-component-name"]');
-    if (nameElement) {
-      const displayName = nameElement.textContent.trim();
-      const apiItem = apiItemsMap.get(displayName);
-
-      if (isChecked && apiItem && apiItem.msdyn_ismanaged) {
-        row.style.display = 'none';
-      } else {
-        row.style.display = '';
-      }
-    }
-  });
-}
-
-/**
  * @description Injects a script into the page to intercept fetch requests and capture credentials.
  */
 function injectScript() {
@@ -298,7 +235,6 @@ async function fetchAllItems() {
 const observer = new MutationObserver(() => {
   observer.disconnect();
   displayVersion();
-  addFilterCheckbox();
   observer.observe(document.body, {
     childList: true,
     subtree: true,
