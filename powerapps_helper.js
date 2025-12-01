@@ -274,7 +274,10 @@ async function fetchAllItems() {
     }
 
     window.allApiItems = allItems; // Store all items globally as per instruction
-    console.table(window.allApiItems);
+    console.table(allItems.map(item => ({ 
+      msdyn_objectid: item.msdyn_objectid, 
+      msdyn_displayname: item.msdyn_displayname 
+    })));
     alert(`Successfully fetched ${allItems.length} items. See console for data.`);
 
   } catch (error) {
